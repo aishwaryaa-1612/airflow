@@ -48,7 +48,6 @@ def extract_weather_data(**kwargs):
         'pressure': d['pressure'],
         'timestamp': datetime.now()
    })
-    print (weather_data)
     return weather_data
 
 

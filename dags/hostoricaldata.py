@@ -26,7 +26,7 @@ dag = DAG(
     },
 )
 
-# Task 1: Extract weather data from the API
+# Extract task
 def extract_weather_data(**kwargs):
     start_date=kwargs['params']['start_date']
     end_date=kwargs['params']['end_date']
@@ -52,7 +52,7 @@ def extract_weather_data(**kwargs):
 
 
 
-# Task 2: Create the weather_data table in Postgres
+# Create table inside postgres
 create_table_sql = """
 CREATE TABLE IF NOT EXISTS historical_weather_data1 (
     id SERIAL PRIMARY KEY,
@@ -65,15 +65,7 @@ CREATE TABLE IF NOT EXISTS historical_weather_data1 (
 );
 """
 
-create_table_task = PostgresOperator(
-    task_id='historical_weather_data',
-    postgres_conn_id='source_database',
-    sql=create_table_sql,
-    autocommit=True,
-    dag=dag,
-)
-
-# Task 3: Insert weather data into the table
+# Insert data from Api into the table
 def insert_weather_data(**kwargs):
         pg_hook = PostgresHook(postgres_conn_id='source_database')
         connection = pg_hook.get_conn()
@@ -88,7 +80,7 @@ def insert_weather_data(**kwargs):
         cursor.close()
         connection.close()
 
-# Task 4: Export data from Postgres to CSV
+# Export data from Postgres to CSV
 def export_to_csv():
     postgres_hook = PostgresHook(postgres_conn_id='source_database')
     conn = postgres_hook.get_conn()
@@ -99,16 +91,27 @@ def export_to_csv():
     print(f"Data exported to {export_path}")
 
 
+
 extract_task = PythonOperator(
     task_id='extract_weather_data_task',
     python_callable=extract_weather_data,
     dag=dag,
 )
+
+create_table_task = PostgresOperator(
+    task_id='historical_weather_data',
+    postgres_conn_id='source_database',
+    sql=create_table_sql,
+    autocommit=True,
+    dag=dag,
+)
+
 insert_task = PythonOperator(
      task_id='insert_weather_data',
      python_callable =insert_weather_data,
      dag=dag,
 )
+
 export_task = PythonOperator(
     task_id='export_to_csv',
     python_callable=export_to_csv,

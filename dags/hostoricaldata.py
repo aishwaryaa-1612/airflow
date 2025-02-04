@@ -6,6 +6,9 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime, timedelta
 import requests
 
+from utils.exportcsv import export_to_csv
+from utils.exportcsv import extract_weather_data
+
 # Default arguments for the DAG
 default_args = {
     'owner': 'airflow',
@@ -26,35 +29,16 @@ dag = DAG(
     },
 )
 
-# Extract task
-def extract_weather_data(**kwargs):
-    start_date=kwargs['params']['start_date']
-    end_date=kwargs['params']['end_date']
-    api_key = "QVCED9KWZTVFG3A2LHBSJYKUF"
-    address = "BANGALORE"
-    url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{address}/{start_date}/{end_date}?unitGroup=metric&include=days&key={api_key}&contentType=json"
-    response = requests.get(url, timeout=10)
-    data = response.json()
-
-
-    weather_data =[]
-    address=data['address']
-    for d in data['days']:
-       weather_data.append( {
-        'city':address,
-        'Date': d['datetime'],
-        'max_temperature': d['tempmax'],
-        'min_temperature': d['tempmin'],
-        'pressure': d['pressure'],
-        'timestamp': datetime.now()
-   })
-    return weather_data
-
-
+extract_task = PythonOperator(
+    task_id='extract_weather_data_task',
+    python_callable=extract_weather_data,
+    op_kwargs={'params': {'start_date': '2025-01-01', 'end_date': '2025-01-31'}},
+    dag=dag,
+)
 
 # Create table inside postgres
 create_table_sql = """
-CREATE TABLE IF NOT EXISTS historical_weather_data1 (
+CREATE TABLE IF NOT EXISTS historical_weatherdata (
     id SERIAL PRIMARY KEY,
     city VARCHAR(100),
     date TIMESTAMP,
@@ -64,6 +48,14 @@ CREATE TABLE IF NOT EXISTS historical_weather_data1 (
     timestamp TIMESTAMP
 );
 """
+create_table_task = PostgresOperator(
+    task_id='historical_weather_data',
+    postgres_conn_id='source_database',
+    sql=create_table_sql,
+    autocommit=True,
+    dag=dag,
+)
+ 
 
 # Insert data from Api into the table
 def insert_weather_data(**kwargs):
@@ -73,38 +65,12 @@ def insert_weather_data(**kwargs):
         weather_data = kwargs['task_instance'].xcom_pull(task_ids='extract_weather_data_task')
         for day in weather_data:
             cursor.execute("""
-                INSERT INTO historical_weather_data1 (city,date,max_temperature,min_temperature,pressure,timestamp )
+                INSERT INTO historical_weatherdata (city,date,max_temperature,min_temperature,pressure,timestamp )
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (day['city'],day['Date'], day['max_temperature'], day['min_temperature'], day['pressure'], day['timestamp']))
         connection.commit()
         cursor.close()
         connection.close()
-
-# Export data from Postgres to CSV
-def export_to_csv():
-    postgres_hook = PostgresHook(postgres_conn_id='source_database')
-    conn = postgres_hook.get_conn()
-
-    df = pd.read_sql_query("SELECT * FROM historical_weather_data1", conn)
-    export_path = '/opt/airflow/dags/csv/exported_historical_data1.csv'
-    df.to_csv(export_path, index=False)
-    print(f"Data exported to {export_path}")
-
-
-
-extract_task = PythonOperator(
-    task_id='extract_weather_data_task',
-    python_callable=extract_weather_data,
-    dag=dag,
-)
-
-create_table_task = PostgresOperator(
-    task_id='historical_weather_data',
-    postgres_conn_id='source_database',
-    sql=create_table_sql,
-    autocommit=True,
-    dag=dag,
-)
 
 insert_task = PythonOperator(
      task_id='insert_weather_data',
@@ -112,9 +78,11 @@ insert_task = PythonOperator(
      dag=dag,
 )
 
+
 export_task = PythonOperator(
     task_id='export_to_csv',
     python_callable=export_to_csv,
+    op_args=['historical_weatherdata', '/opt/airflow/dags/csv/historical_data.csv'],
     dag=dag,
 )
 

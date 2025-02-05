@@ -8,6 +8,8 @@ import requests
 
 from utils.exportcsv import export_to_csv
 from utils.exportcsv import extract_weather_data
+from utils.exportcsv import insert_weather_data
+from airflow.models import Variable
 
 # Default arguments for the DAG
 default_args = {
@@ -32,7 +34,6 @@ dag = DAG(
 extract_task = PythonOperator(
     task_id='extract_weather_data_task',
     python_callable=extract_weather_data,
-    op_kwargs={'params': {'start_date': '2025-01-01', 'end_date': '2025-01-31'}},
     dag=dag,
 )
 
@@ -50,28 +51,12 @@ CREATE TABLE IF NOT EXISTS historical_weatherdata (
 """
 create_table_task = PostgresOperator(
     task_id='historical_weather_data',
-    postgres_conn_id='source_database',
+    postgres_conn_id=Variable.get("postgres_conn_id"),
     sql=create_table_sql,
     autocommit=True,
     dag=dag,
 )
  
-
-# Insert data from Api into the table
-def insert_weather_data(**kwargs):
-        pg_hook = PostgresHook(postgres_conn_id='source_database')
-        connection = pg_hook.get_conn()
-        cursor = connection.cursor()
-        weather_data = kwargs['task_instance'].xcom_pull(task_ids='extract_weather_data_task')
-        for day in weather_data:
-            cursor.execute("""
-                INSERT INTO historical_weatherdata (city,date,max_temperature,min_temperature,pressure,timestamp )
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (day['city'],day['Date'], day['max_temperature'], day['min_temperature'], day['pressure'], day['timestamp']))
-        connection.commit()
-        cursor.close()
-        connection.close()
-
 insert_task = PythonOperator(
      task_id='insert_weather_data',
      python_callable =insert_weather_data,

@@ -9,7 +9,9 @@ import requests
 from utils.exportcsv import export_to_csv
 from utils.exportcsv import extract_weather_data
 from utils.exportcsv import insert_weather_data
+from utils.exportcsv import create_table_sql
 from airflow.models import Variable
+
 
 # Default arguments for the DAG
 default_args = {
@@ -37,18 +39,6 @@ extract_task = PythonOperator(
     dag=dag,
 )
 
-# Create table inside postgres
-create_table_sql = """
-CREATE TABLE IF NOT EXISTS historical_weatherdata (
-    id SERIAL PRIMARY KEY,
-    city VARCHAR(100),
-    date TIMESTAMP,
-    max_temperature FLOAT,
-    min_temperature FLOAT,
-    pressure INT,
-    timestamp TIMESTAMP
-);
-"""
 create_table_task = PostgresOperator(
     task_id='historical_weather_data',
     postgres_conn_id=Variable.get("postgres_conn_id"),

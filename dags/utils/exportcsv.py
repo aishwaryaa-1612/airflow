@@ -5,21 +5,13 @@ import requests
 from datetime import datetime
 from airflow.models import Variable
 
-def export_to_csv(table_name, export_path, conn_id=Variable.get("postgres_conn_id")):
-    postgres_hook = PostgresHook(postgres_conn_id=conn_id)
-    conn = postgres_hook.get_conn()
 
-    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-    df.to_csv(export_path, index=False)
-    print(f"Data exported to {export_path}")
-
-
+#task to fetch data from api
 def extract_weather_data(**kwargs):
     start_date = kwargs['params']['start_date']
     end_date = kwargs['params']['end_date']
     api_key = "QVCED9KWZTVFG3A2LHBSJYKUF"
     address = "BANGALORE"
-    
     url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{address}/{start_date}/{end_date}?unitGroup=metric&include=days&key={api_key}&contentType=json"
     response = requests.get(url, timeout=10)
     data = response.json()
@@ -37,6 +29,21 @@ def extract_weather_data(**kwargs):
         })
     return weather_data
 
+
+# Create table inside postgres
+create_table_sql = """
+CREATE TABLE IF NOT EXISTS historical_weatherdata (
+    id SERIAL PRIMARY KEY,
+    city VARCHAR(100),
+    date TIMESTAMP,
+    max_temperature FLOAT,
+    min_temperature FLOAT,
+    pressure INT,
+    timestamp TIMESTAMP
+);
+"""
+
+#task to insert data from api to database
 def insert_weather_data(**kwargs):
         pg_hook = PostgresHook(postgres_conn_id= Variable.get("postgres_conn_id"))
         connection = pg_hook.get_conn()
@@ -50,3 +57,14 @@ def insert_weather_data(**kwargs):
         connection.commit()
         cursor.close()
         connection.close()
+
+
+
+#task to export data to csv
+def export_to_csv(table_name, export_path, conn_id=Variable.get("postgres_conn_id")):
+    postgres_hook = PostgresHook(postgres_conn_id=conn_id)
+    conn = postgres_hook.get_conn()
+
+    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+    df.to_csv(export_path, index=False)
+    print(f"Data exported to {export_path}")

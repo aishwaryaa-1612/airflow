@@ -10,8 +10,9 @@ from airflow.models import Variable
 def extract_weather_data(**kwargs):
     start_date = kwargs['params']['start_date']
     end_date = kwargs['params']['end_date']
-    api_key = "QVCED9KWZTVFG3A2LHBSJYKUF"
+    api_key = "Z64KXH9TZR5VTF49B5UWJCLA5"
     address = "BANGALORE"
+
     url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{address}/{start_date}/{end_date}?unitGroup=metric&include=days&key={api_key}&contentType=json"
     response = requests.get(url, timeout=10)
     data = response.json()
@@ -31,8 +32,9 @@ def extract_weather_data(**kwargs):
 
 
 # Create table inside postgres
-create_table_sql = """
-CREATE TABLE IF NOT EXISTS historical_weatherdata (
+table_name=Variable.get("weather_table")
+create_table_sql = f"""
+CREATE TABLE IF NOT EXISTS {table_name} (
     id SERIAL PRIMARY KEY,
     city VARCHAR(100),
     date TIMESTAMP,
@@ -48,10 +50,11 @@ def insert_weather_data(**kwargs):
         pg_hook = PostgresHook(postgres_conn_id= Variable.get("postgres_conn_id"))
         connection = pg_hook.get_conn()
         cursor = connection.cursor()
+        table_name=Variable.get("weather_table")
         weather_data = kwargs['task_instance'].xcom_pull(task_ids='extract_weather_data_task')
         for day in weather_data:
-            cursor.execute("""
-                INSERT INTO historical_weatherdata (city,date,max_temperature,min_temperature,pressure,timestamp )
+            cursor.execute(f"""
+                INSERT INTO {table_name} (city,date,max_temperature,min_temperature,pressure,timestamp )
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (day['city'],day['Date'], day['max_temperature'], day['min_temperature'], day['pressure'], day['timestamp']))
         connection.commit()
@@ -61,7 +64,7 @@ def insert_weather_data(**kwargs):
 
 
 #task to export data to csv
-def export_to_csv(table_name, export_path, conn_id=Variable.get("postgres_conn_id")):
+def export_to_csv(table_name,export_path, conn_id):
     postgres_hook = PostgresHook(postgres_conn_id=conn_id)
     conn = postgres_hook.get_conn()
 

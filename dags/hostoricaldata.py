@@ -6,10 +6,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime, timedelta
 import requests
 
-from utils.exportcsv import export_to_csv
-from utils.exportcsv import extract_weather_data
-from utils.exportcsv import insert_weather_data
-from utils.exportcsv import create_table_sql
+from utils.exportcsv import export_to_csv,extract_weather_data,insert_weather_data,create_table_sql
 from airflow.models import Variable
 
 
@@ -28,8 +25,8 @@ dag = DAG(
     schedule_interval='@daily',
     catchup=False,
     params={
-        "start_date": "2025-01-14",
-        "end_date":"2025-01-31"
+        "start_date": "2025-01-01",#default 
+        "end_date":"2025-01-31"    #default
     },
 )
 
@@ -57,7 +54,7 @@ insert_task = PythonOperator(
 export_task = PythonOperator(
     task_id='export_to_csv',
     python_callable=export_to_csv,
-    op_args=['historical_weatherdata', '/opt/airflow/dags/csv/historical_data.csv'],
+    op_args=[Variable.get("weather_table"), Variable.get("weather_csv_path"),Variable.get("postgres_conn_id")],
     dag=dag,
 )
 

@@ -4,11 +4,10 @@ from airflow.operators.python import PythonOperator
 import pandas as pd
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime, timedelta
-import requests
-
-from utils.exportcsv import export_to_csv,extract_weather_data,insert_weather_data,create_table_sql
+import sys,os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
+from exportcsv import export_to_csv,extract_weather_data,insert_weather_data,create_table_sql
 from airflow.models import Variable
-
 
 # Default arguments for the DAG
 default_args = {
@@ -25,7 +24,7 @@ dag = DAG(
     schedule_interval='@daily',
     catchup=False,
     params={
-        "start_date": "2025-01-01",#default 
+        "start_date": "2025-01-01", #default 
         "end_date":"2025-01-31"    #default
     },
 )

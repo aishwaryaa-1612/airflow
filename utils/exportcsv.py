@@ -10,9 +10,8 @@ from airflow.models import Variable
 def extract_weather_data(**kwargs):
     start_date = kwargs['params']['start_date']
     end_date = kwargs['params']['end_date']
-    api_key = "Z64KXH9TZR5VTF49B5UWJCLA5"
+    api_key = Variable.get("WEATHER_API_KEY")
     address = "BANGALORE"
-
     url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{address}/{start_date}/{end_date}?unitGroup=metric&include=days&key={api_key}&contentType=json"
     response = requests.get(url, timeout=10)
     data = response.json()

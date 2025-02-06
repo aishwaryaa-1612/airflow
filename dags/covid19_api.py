@@ -3,8 +3,6 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime, timedelta
-import pandas as pd
-import requests
 from airflow.models import Variable
 import sys,os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
@@ -26,7 +24,7 @@ dag = DAG(
     catchup=False,
 )
 
-          
+     
 extract_task = PythonOperator(
     task_id='extract_covid_data_task',
     python_callable=extract_covid19_data,
@@ -59,6 +57,5 @@ export_to_csv_task = PythonOperator(
     python_callable=export_to_csv,
     dag=dag,
 )
-
 
 extract_task>>dataframe_process_task>>create_table_task>>insert_table_task>>export_to_csv_task

@@ -23,8 +23,6 @@ def dataframe_process(**kwargs):
     df['totalHospitalToBedRatio'] = df['totalHospitals'] / df['totalBeds'] 
     df["asOn"] = pd.to_datetime(df["asOn"]).dt.date
     df["moreThan1000Hospitals"] = df["totalHospitals"].apply(lambda x: "Yes" if x > 1000 else "No")
-
-    df.to_csv('/opt/airflow/dags/csv/covid.csv',index=False)
     ti.xcom_push(key='processed_covid_data', value=df.to_dict(orient='records'))
 
 

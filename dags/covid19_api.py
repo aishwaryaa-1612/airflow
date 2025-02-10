@@ -5,8 +5,8 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from datetime import datetime, timedelta
 from airflow.models import Variable
 import sys,os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'utils')))
-from covid19_utils import extract_covid19_data,dataframe_process,create_table_sql,insert_data_into_postgres,export_to_csv
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.covid19_utils import extract_covid19_data,dataframe_process,create_table_sql,insert_data_into_postgres,export_to_csv
 
 # Default arguments for the DAG
 default_args = {
